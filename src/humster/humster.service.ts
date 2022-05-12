@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/sequelize';
 import { HumsterType } from './humster-type.model';
 import { RationType } from './ration-type.model';
@@ -13,61 +13,76 @@ export class HumsterService {
     @InjectModel(Humster) private humsterRepository: typeof Humster) {}
 
     async getAllHumsterType(){
-        const types = this.humsterTypeRepistory.findAll();
+        const types = await this.humsterTypeRepistory.findAll();
         return types;
     }
 
     async createHumsterType(dto: CreateHumsterTypeDto){
-        const type = this.humsterTypeRepistory.create(dto);
+        const type = await this.humsterTypeRepistory.create(dto);
         return type;
     }
 
     async deleteHumsterType(dto: DeleteHumsterTypeDto){
-        const type = this.humsterTypeRepistory.destroy({
-            where: {typeName: dto.typeName}
+        const type = await this.humsterTypeRepistory.destroy({
+            where: {typeName: dto.typeName.toLowerCase()}
           });
-        return type;
+          const message = {};
+          if(type == 1) {
+              message['statusCode'] = '200'
+              message['message'] = 'success'
+          } else {
+              throw new HttpException('not found', HttpStatus.NOT_FOUND);
+          }
+          return message;
     }
 
     async getAllRationType(){
-        const rations = this.rationTypeRepository.findAll();
+        const rations = await this.rationTypeRepository.findAll();
         return rations;
     }
 
     async createRationType(dto: CreateHumsterTypeDto){
-        console.log(dto);
-        const ration = this.rationTypeRepository.create(dto);
+        const ration = await this.rationTypeRepository.create(dto);
         return ration;
     }
 
     async deleteRationType(dto: DeleteHumsterTypeDto){
-        const type = this.rationTypeRepository.destroy({
-            where: {typeName: dto.typeName}
+        const type = await this.rationTypeRepository.destroy({
+            where: {typeName: dto.typeName.toLowerCase()}
           });
-        return type;
+        const message = {};
+        if(type == 1) {
+            message['statusCode'] = '200'
+            message['message'] = 'success'
+        } else {
+            throw new HttpException('not found', HttpStatus.NOT_FOUND);
+        }
+        return message;
     }
 
     async addHumster(dto: CreateHumsterDto){
-        const rations =[];
-        const test = await this.rationTypeRepository.findAll({where: {typeName: dto.ration}})
-        const type = await this.humsterTypeRepistory.findOne({where: {typeName: dto.typeName}})
-        test.forEach(element => {
+        const rations = [];
+        const lowerCaseRations = dto.ration.map(e => e.toLocaleLowerCase());
+        const rationFromDb = await this.rationTypeRepository.findAll({where: {typeName: lowerCaseRations}})
+        const type = await this.humsterTypeRepistory.findOne({where: {typeName: dto.typeName.toLowerCase()}})
+        if(!type) {
+            throw new HttpException('Не найден тип хомяка', HttpStatus.NOT_FOUND)
+        }
+        rationFromDb.forEach(element => {
             rations.push(element.id);
         });
         if(rations.length === dto.ration.length){
             dto['typeId'] = type.id;
             const humster = await this.humsterRepository.create(dto);
             await humster.$set('ration', rations);
-            console.log(humster)
             return dto;
         }else{
-            console.log('неуспех')
+            throw new HttpException('Некоторые рационы не были найдены', HttpStatus.NOT_FOUND)
         }
     }
 
     async getAllHumsters(query){
         const types = await this.humsterRepository.findAll({
-            logging: console.log,
             include: [{
                     model: RationType, attributes:['typeName'], through: {attributes: []}
                 },{
@@ -90,7 +105,6 @@ export class HumsterService {
         });
         if(query.field && query.type) {
             if(!humsters[0][query.field]){
-                console.log('возврат');
                 return humsters;
             }
            

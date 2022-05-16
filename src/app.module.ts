@@ -1,5 +1,8 @@
 import { Module } from '@nestjs/common';
 import { SequelizeModule } from '@nestjs/sequelize';
+import { HumsterModule } from './humster/humster.module';
+
+
 
 @Module({
   controllers:[],
@@ -14,6 +17,7 @@ import { SequelizeModule } from '@nestjs/sequelize';
       models: [],
       autoLoadModels:true
     }),
+    HumsterModule,
   ],
 })
 export class AppModule {}
